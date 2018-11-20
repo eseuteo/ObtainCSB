@@ -78,6 +78,7 @@ void score_list::insert(int64_t score, uint64_t i, uint64_t j) {
     }
     length++;
     if (length > TOP_SCORE_SIZE) {
+//        remove_near_scores();
         struct score_cell *delete_me = head;
         head = head->next;
         delete(delete_me);

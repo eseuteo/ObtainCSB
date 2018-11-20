@@ -10,8 +10,9 @@
 
 #define ROW true
 #define COLUMN false
-#define GAP_PENALTY 3
-#define TOP_SCORE_SIZE 50
+#define HIT_SCORE 8
+#define GAP_PENALTY 1
+#define TOP_SCORE_SIZE 200
 #define DIAGONAL 10
 #define LEFT 11
 #define UP 12

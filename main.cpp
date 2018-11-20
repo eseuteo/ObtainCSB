@@ -11,10 +11,10 @@
 int8_t get_score(uint64_t a, uint64_t b) {
     if (a && a == b) {
         // std::cout << "Hit: " << a << ", " << b << std::endl;
-        return 8;
+        return HIT_SCORE;
     }
     else
-        return -8;
+        return -HIT_SCORE;
 }
 
 bool could_not_open(std::ifstream & file) {
@@ -67,6 +67,44 @@ int64_t get_col_max_score(int64_t ** score_matrix, uint64_t i, uint64_t j) {
         candidate = score_matrix[k][j] - (int64_t) (i - k) * (int64_t) GAP_PENALTY;
         ans = std::max(ans, candidate);
     }
+    return ans;
+}
+
+int64_t obtain_row_max_score(double ratio, int64_t current_max_row_score, int64_t left_cell_score) {
+    int64_t ans = 0;
+//    if (current_max_row_score > 10) {
+//        std::cout << "Inside obtain_row_max_score: " << ratio << " " << left_cell_score << " " << current_max_row_score << std::endl;
+//    }
+    ans = std::max(current_max_row_score - (int64_t) GAP_PENALTY, left_cell_score - (int64_t) GAP_PENALTY);
+    //std::cout << "Inside obtain_row_max_score: " << ans << std::endl;
+    ans = std::max((int64_t) 0, ans);
+    //std::cout << "Inside obtain_row_max_score: " << ans << std::endl;
+    ans = (int64_t) (ans + ceil((GAP_PENALTY/HIT_SCORE) * ratio));
+    //std::cout << "Inside obtain_row_max_score: " << ans << std::endl;
+    //std::cout << "---" << std::endl;
+    return ans;
+}
+
+int64_t obtain_column_max_score(double ratio, int64_t column_max_score, int64_t above_cell_score) {
+    int64_t ans = 0;
+    ans = std::max(column_max_score - (int64_t) GAP_PENALTY, above_cell_score - (int64_t) GAP_PENALTY);
+    ans = std::max((int64_t) 0, ans);
+    ans = (int64_t) (ans + ceil((GAP_PENALTY/HIT_SCORE) / ratio));
+    return ans;
+}
+
+int64_t obtain_score_matrix(double ratio, int64_t center, int64_t left, int64_t above) {
+    int64_t ans = center;
+    if (ratio > 1) {
+        ans = left;
+    } else if (ratio < 1) {
+        ans = above;
+    }
+
+    ans = center > ans ? center : ans;
+    ans = above > ans ? above : ans;
+    ans = left > ans ? left : ans;
+
     return ans;
 }
 
@@ -132,6 +170,10 @@ int main(int argc, char *argv[]) {
     uint64_t y_size = 0;
     x_size = x_sequence_length/cell_size + 1;
     y_size = y_sequence_length/cell_size + 1;
+
+    double x_y_ratio = (double) x_size/y_size;
+    std::cout << "[RATIO]: " << x_y_ratio << std::endl;
+
     std::cout << x_size << ", " << y_size << std::endl;
     uint64_t *x_sequence = new uint64_t[x_size];
     uint64_t *y_sequence = new uint64_t[y_size];
@@ -156,6 +198,10 @@ int main(int argc, char *argv[]) {
     // for (int64_t i = 0; i < std::min(x_size, y_size); i++) {
     //     std::cout << x_sequence[i] << "," << y_sequence[i] << std::endl;
     // }
+
+    int64_t above_cell_score;
+    int64_t left_cell_score;
+    int64_t diagonal_cell_score;
 
     int64_t current_cell_score;
     int64_t row_max_score = 0;
@@ -183,16 +229,21 @@ int main(int argc, char *argv[]) {
         }
         for (uint64_t j = 1; j < y_size; j++) {
             score_matrix[i][j] = 0;
-            current_cell_score = get_score(x_sequence[i], y_sequence[j]) + score_matrix[i-1][j-1];
-            if (x_sequence[i] && x_sequence[i] == y_sequence[j]) {
-                output_file_score << "[" << x_sequence[i] * cell_size << ", " << y_sequence[j] * cell_size << "]: " << current_cell_score << std::endl;
-                // output_file_score << "[" << i * cell_size << ", " << j * cell_size << "]: " << current_cell_score << std::endl;
-            }
-            row_max_score = std::max((int64_t) 0, std::max(row_max_score - (int64_t) GAP_PENALTY, score_matrix[i][j-1] - (int64_t) GAP_PENALTY)); // No guardar el score sino la coordenada?
 
-            column_max_score[j] = std::max((int64_t) 0, std::max(column_max_score[j] - (int64_t) GAP_PENALTY, score_matrix[i-1][j] - (int64_t) GAP_PENALTY));
-            score_matrix[i][j] = current_cell_score > row_max_score ? current_cell_score : row_max_score;
-            score_matrix[i][j] = score_matrix[i][j] > column_max_score[j] ? score_matrix[i][j] : column_max_score[j];
+//            if (x_sequence[i] && x_sequence[i] == y_sequence[j]) {
+//                output_file_score << "[" << x_sequence[i] * cell_size << ", " << y_sequence[j] * cell_size << "]: " << current_cell_score << std::endl;
+//                // output_file_score << "[" << i * cell_size << ", " << j * cell_size << "]: " << current_cell_score << std::endl;
+//            }
+            current_cell_score = get_score(x_sequence[i], y_sequence[j]) + score_matrix[i-1][j-1];
+//            row_max_score = std::max((int64_t) 0, std::max(row_max_score - (int64_t) GAP_PENALTY, score_matrix[i][j-1] - (int64_t) GAP_PENALTY)); // No guardar el score sino la coordenada?
+
+            row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, score_matrix[i][j-1]);
+            //std::cout << "row " << row_max_score << std::endl;
+            column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], score_matrix[i-1][j]);
+            //std::cout << "col " << column_max_score[j] << std::endl;
+
+            score_matrix[i][j] = obtain_score_matrix(x_y_ratio, current_cell_score, row_max_score, column_max_score[j]);
+
             if (score_matrix[i][j] >= 94515711529264) {
                 std::cout << "ERROR: " << i << ", " << j << ", " << current_cell_score << ", " << row_max_score << ", " << column_max_score[j] << std::endl;
                 exit(-1);
@@ -200,19 +251,20 @@ int main(int argc, char *argv[]) {
             if (score_matrix[i][j] > 8) {
                 size_list = list_top_scores.length;
                 list_top_scores.insert(score_matrix[i][j], i, j);
-                if (size_list < list_top_scores.length) {
-                    std::cout << "Inserted: " << std::endl;
-                    std::cout << "[" << i << ", " << j << ", " << score_matrix[i][j] << "]"<< std::endl;
-                    std::cout << "Pre: \n" << std::endl;
-                    list_top_scores.print_list();
-                    std::cout << "\n" << std::endl;
-                    std::cout << "Length: " << list_top_scores.length << std::endl;
-                    list_top_scores.remove_near_scores();
-                    std::cout << "Post: \n" << std::endl;
-                    list_top_scores.print_list();
-                    std::cout << "\n" << std::endl;
-                    std::cout << "Lenght: " << list_top_scores.length << std::endl;
-                }
+                list_top_scores.remove_near_scores();
+//                if (size_list < list_top_scores.length) {
+//                    std::cout << "Inserted: " << std::endl;
+//                    std::cout << "[" << i << ", " << j << ", " << score_matrix[i][j] << "]"<< std::endl;
+//                    std::cout << "Pre: \n" << std::endl;
+//                    list_top_scores.print_list();
+//                    std::cout << "\n" << std::endl;
+//                    std::cout << "Length: " << list_top_scores.length << std::endl;
+//                   list_top_scores.remove_near_scores();
+//                    std::cout << "Post: \n" << std::endl;
+//                    list_top_scores.print_list();
+//                    std::cout << "\n" << std::endl;
+//                    std::cout << "Lenght: " << list_top_scores.length << std::endl;
+//                }
             }
         }
         // output_file_score << '\n';
