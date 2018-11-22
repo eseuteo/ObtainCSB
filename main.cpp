@@ -271,6 +271,9 @@ int main(int argc, char *argv[]) {
     }
 
     list_top_scores.print_list();
+    list_top_scores.remove_near_scores_thoroughly();
+    list_top_scores.print_list();
+    std::cout << "asd" << std::endl;
     uint64_t x_start, y_start, x_end, y_end;
     uint64_t starting_index_i, starting_index_j, ending_index_i, ending_index_j;
     uint8_t case_max;
@@ -302,7 +305,13 @@ int main(int argc, char *argv[]) {
 
         double tilt = get_tilt(ending_index_i, starting_index_i, ending_index_j, starting_index_j);
 
-        if (abs(get_tilt(ending_index_i, starting_index_i, ending_index_j, starting_index_j) - M_PI/4) < 0.15) {
+        std::cout << tilt << std::endl;
+        std::cout << atan(x_y_ratio) << std::endl;
+
+        std::cout << fabs(tilt - atan(x_y_ratio)) << std::endl;
+        std::cout <<  M_PI/16 << std::endl;
+
+        if (fabs(tilt - atan(1/x_y_ratio)) < M_PI/16) {
             output_file << ending_index_i * cell_size << ",";
             output_file << ending_index_j * cell_size << ",";
             output_file << starting_index_i * cell_size << ",";

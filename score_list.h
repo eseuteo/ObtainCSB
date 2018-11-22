@@ -22,6 +22,7 @@ class score_list {
         void remove_last();
         void print_list();
         void remove_near_scores();
+        void remove_near_scores_thoroughly();
 };
 
 

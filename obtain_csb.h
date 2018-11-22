@@ -12,7 +12,7 @@
 #define COLUMN false
 #define HIT_SCORE 8
 #define GAP_PENALTY 1
-#define TOP_SCORE_SIZE 200
+#define TOP_SCORE_SIZE 20
 #define DIAGONAL 10
 #define LEFT 11
 #define UP 12
