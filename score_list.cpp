@@ -151,29 +151,38 @@ void score_list::remove_near_scores() {
 
 void score_list::remove_near_scores_thoroughly() {
     struct score_cell *base = head;
-    struct score_cell *prev;
+    struct score_cell *prev = nullptr;
     struct score_cell *current;
-    struct score_cell *next;
+    bool flag_removed = false;
 
     while (base) {
-        prev = base;
         current = base->next;
-        next = base->next ? base->next->next : nullptr;
+
         while (current) {
             if (is_near(base, current)) {
-                struct score_cell *delete_me = current;
-                prev->next = current->next;
-                delete(delete_me);
+                struct score_cell *delete_me = base;
+
+                if (!prev) {
+                    head = base->next;
+                } else {
+                    prev->next = base->next;
+                }
+
                 length--;
-                prev = base;
-                current = base->next;
-                next = base->next ? base->next->next : nullptr;
+                current = nullptr;
+                base = base->next;
+
+                delete (delete_me);
+                flag_removed = true;
             } else {
-                prev = current;
-                current = next;
-                next = next ? next->next : nullptr;
+                current = current->next;
             }
         }
-        base = base->next;
+        if (!flag_removed) {
+            prev = base;
+            base = base->next;
+        } else {
+            flag_removed = false;
+        }
     }
 }

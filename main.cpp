@@ -311,7 +311,7 @@ int main(int argc, char *argv[]) {
         std::cout << fabs(tilt - atan(x_y_ratio)) << std::endl;
         std::cout <<  M_PI/16 << std::endl;
 
-        if (fabs(tilt - atan(1/x_y_ratio)) < M_PI/16) {
+        if (fabs(tilt - atan(1/x_y_ratio)) < M_PI/8) {
             output_file << ending_index_i * cell_size << ",";
             output_file << ending_index_j * cell_size << ",";
             output_file << starting_index_i * cell_size << ",";
