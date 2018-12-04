@@ -7,6 +7,8 @@
 #include <sstream>
 #include <limits>
 #include <cmath>
+#include <unordered_map>
+#include "score_matrix_cell.h"
 
 int main(int argc, char *argv[]) {
     // Files
@@ -88,8 +90,9 @@ int main(int argc, char *argv[]) {
         std::cout << x_size << ", " << y_size << std::endl;
 #endif
 
-    uint64_t *x_sequence = new uint64_t[x_size];
-    uint64_t *y_sequence = new uint64_t[y_size];
+        // Replaced arrays with unordered maps
+    std::unordered_map<uint64_t, uint64_t> x_sequence_map;
+    std::unordered_map<uint64_t, uint64_t> y_sequence_map;
 
     // Determine what to do with each frag      O(n), being n the number of frags
     //      - How many cells are being filled
@@ -102,14 +105,22 @@ int main(int argc, char *argv[]) {
         start = (*it).x_start / cell_size;
         end = start + cells_to_fill;
         for (start; start < end; start++) {
-            x_sequence[start + 1] =  (*it).frag_id;
+            x_sequence_map.insert({start+1, (*it).frag_id});
         }
         start = (*it).y_start / cell_size;
         end = start + cells_to_fill;
         for (start; start < end; start++) {
-            y_sequence[start + 1] =  (*it).frag_id;
+            y_sequence_map.insert({start+1, (*it).frag_id});
         }
     }
+
+//#ifdef _DEBUG_SPARSE
+//    uint64_t counter_sparse_x = 0;
+//    for (int i = 0; i < x_size; i++) {
+//        counter_sparse_x += x_sequence[i] != 0;
+//    }
+//    std::cout << counter_sparse_x << std::endl;
+//#endif
 
 
     int64_t above_cell_score;
@@ -120,6 +131,7 @@ int main(int argc, char *argv[]) {
     int64_t row_max_score = 0;
     int64_t *column_max_score = new int64_t[y_size];
 
+    std::unordered_map<score_matrix_cell, uint64_t> sparse_score_matrix;
     int64_t **score_matrix = new int64_t *[x_size];
     for (int64_t i = 0; i < x_size; i++) {
         score_matrix[i] = new int64_t[y_size];
@@ -134,9 +146,19 @@ int main(int argc, char *argv[]) {
     std::cout << "Filling score matrix" << std::endl;
 #endif
 
+    uint64_t current_x = 0;
+    uint64_t current_y = 0;
+
     // Score matrix filling
     // TODO: In order to change it with a sparse matrix --> get and set functions
     for (uint64_t i = 1; i < x_size; i++) {
+        current_x = x_sequence_map.count(i) ? x_sequence_map.at(i) : 0;
+
+#ifdef _DEBUG_SPARSE
+        if (i == 3422) {
+            std::cout << i << std::endl;
+        }
+#endif
 
 #ifdef VERBOSE
         if (i % (x_size / 10) == 0) {
@@ -154,7 +176,9 @@ int main(int argc, char *argv[]) {
             }
 #endif
 
-            current_cell_score = get_score(x_sequence[i], y_sequence[j]) + score_matrix[i-1][j-1];
+            current_y = y_sequence_map.count(j) ? y_sequence_map.at(j) : 0;
+
+            current_cell_score = get_score(current_x, current_y) + score_matrix[i-1][j-1];
             row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, score_matrix[i][j-1]);
             column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], score_matrix[i-1][j]);
 

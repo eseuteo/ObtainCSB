@@ -40,7 +40,7 @@ bool is_near(struct score_cell *a, struct score_cell *b) {
 }
 
 int64_t get_score(uint64_t a, uint64_t b) {
-    if (a && a == b) {
+    if (a && (a == b)) {
         return HIT_SCORE;
     }
     else
