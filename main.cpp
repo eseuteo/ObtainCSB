@@ -8,7 +8,34 @@
 #include <limits>
 #include <cmath>
 #include <unordered_map>
+#include <bits/unordered_map.h>
 #include "score_matrix_cell.h"
+
+uint64_t get_elem(std::unordered_map<score_matrix_cell, uint64_t> map, uint64_t index_i, uint64_t index_j) {
+    uint64_t ans;
+    score_matrix_cell index = score_matrix_cell(index_i, index_j);
+    if (map.find(index) != map.end()) {
+        ans = map.at(index);
+    } else {
+        ans = 0;
+    }
+    return ans;
+}
+
+uint64_t get_elem(std::unordered_map<uint64_t, uint64_t> map, uint64_t index) {
+    uint64_t ans;
+    if (map.find(index) != map.end()) {
+        ans = map.at(index);
+    } else {
+        ans = 0;
+    }
+    return ans;
+}
+
+void set_elem(std::unordered_map<score_matrix_cell, uint64_t> map, uint64_t i, uint64_t j, uint64_t score) {
+    score_matrix_cell index = score_matrix_cell(i, j);
+    map.insert({index, score});
+}
 
 int main(int argc, char *argv[]) {
     // Files
@@ -122,6 +149,10 @@ int main(int argc, char *argv[]) {
 //    std::cout << counter_sparse_x << std::endl;
 //#endif
 
+#ifdef _DEBUG_SPARSE
+    uint64_t non_zero_elements = 0;
+#endif
+
 
     int64_t above_cell_score;
     int64_t left_cell_score;
@@ -131,11 +162,13 @@ int main(int argc, char *argv[]) {
     int64_t row_max_score = 0;
     int64_t *column_max_score = new int64_t[y_size];
 
+    uint64_t score = 0;
+
     std::unordered_map<score_matrix_cell, uint64_t> sparse_score_matrix;
-    int64_t **score_matrix = new int64_t *[x_size];
-    for (int64_t i = 0; i < x_size; i++) {
-        score_matrix[i] = new int64_t[y_size];
-    }
+//    int64_t **score_matrix = new int64_t *[x_size];
+//    for (int64_t i = 0; i < x_size; i++) {
+//        score_matrix[i] = new int64_t[y_size];
+//    }
 
     score_list list_top_scores = score_list();
     uint64_t size_list;
@@ -152,7 +185,7 @@ int main(int argc, char *argv[]) {
     // Score matrix filling
     // TODO: In order to change it with a sparse matrix --> get and set functions
     for (uint64_t i = 1; i < x_size; i++) {
-        current_x = x_sequence_map.count(i) ? x_sequence_map.at(i) : 0;
+        current_x = get_elem(x_sequence_map, i);
 
 #ifdef _DEBUG_SPARSE
         if (i == 3422) {
@@ -161,6 +194,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 #ifdef VERBOSE
+        std::cout << i << std::endl;
         if (i % (x_size / 10) == 0) {
             std::cout << i * 100 / x_size + 1 << " %" << std::endl;
         }
@@ -176,30 +210,40 @@ int main(int argc, char *argv[]) {
             }
 #endif
 
-            current_y = y_sequence_map.count(j) ? y_sequence_map.at(j) : 0;
+            current_y = get_elem(y_sequence_map, j);
 
-            current_cell_score = get_score(current_x, current_y) + score_matrix[i-1][j-1];
-            row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, score_matrix[i][j-1]);
-            column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], score_matrix[i-1][j]);
+            // current_cell_score = get_score(current_x, current_y) + score_matrix[i-1][j-1];
+            current_cell_score = get_score(current_x, current_y) + get_elem(sparse_score_matrix, i-1, j-1);
+
+            if (current_cell_score == 0) {
+                continue;
+            }
+            // row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, score_matrix[i][j-1]);
+            row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, get_elem(sparse_score_matrix, i, j-1));
+            // column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], score_matrix[i-1][j]);
+            column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], get_elem(sparse_score_matrix, i-1, j));
 
 #ifdef _DEBUG
             std::cout << "row " << row_max_score << std::endl;
             std::cout << "col " << column_max_score[j] << std::endl;
 #endif
 
-            score_matrix[i][j] = obtain_score_matrix(x_y_ratio, current_cell_score, row_max_score, column_max_score[j]);
-
-
-            if (score_matrix[i][j] > 8) {
-                size_list = list_top_scores.length;
-                list_top_scores.insert(score_matrix[i][j], i, j);
-                list_top_scores.remove_near_scores();
-#ifdef _DEBUG
-                list_top_scores.print_list();
-#endif
+            // score_matrix[i][j] = obtain_score_matrix(x_y_ratio, current_cell_score, row_max_score, column_max_score[j]);
+            score = obtain_score_matrix(x_y_ratio, current_cell_score, row_max_score, column_max_score[j]);
+            if (score != 0) {
+                set_elem(sparse_score_matrix, i, j, score);
+                if (get_elem(sparse_score_matrix, i, j) > 8) {
+                    size_list = list_top_scores.length;
+                    list_top_scores.insert(get_elem(sparse_score_matrix, i, j), i, j);
+                    list_top_scores.remove_near_scores();
+                }
             }
         }
     }
+
+#ifdef _DEBUG_SPARSE
+    std::cout << "Percentage of non-zero elements: " << non_zero_elements << "/" << x_size * y_size << std::endl;
+#endif
 
 #ifdef VERBOSE
     list_top_scores.print_list();
@@ -223,7 +267,9 @@ int main(int argc, char *argv[]) {
         starting_index_i = ending_index_i = current_max.i;
         starting_index_j = ending_index_j = current_max.j;
         while (!stop) {
-            case_max = get_case_max(score_matrix[ending_index_i-1][ending_index_j-1], score_matrix[ending_index_i][ending_index_j-1], score_matrix[ending_index_i-1][ending_index_j]);
+            case_max = get_case_max(get_elem(sparse_score_matrix, ending_index_i-1, ending_index_j-1),
+                    get_elem(sparse_score_matrix, ending_index_i, ending_index_j-1),
+                    get_elem(sparse_score_matrix, ending_index_i-1, ending_index_j));
             switch(case_max) {
                 case DIAGONAL:
                     ending_index_i-=1;
@@ -236,7 +282,7 @@ int main(int argc, char *argv[]) {
                     ending_index_j-=1;
                     break;
             }
-            stop = score_matrix[ending_index_i][ending_index_j] == 0;
+            stop = get_elem(sparse_score_matrix, ending_index_i, ending_index_j) == 0;
         }
 
         double tilt = get_tilt(ending_index_i, starting_index_i, ending_index_j, starting_index_j);

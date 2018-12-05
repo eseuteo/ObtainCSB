@@ -44,7 +44,7 @@ int64_t get_score(uint64_t a, uint64_t b) {
         return HIT_SCORE;
     }
     else
-        return -HIT_SCORE;
+        return 0;
 }
 
 std::string get_last_word(const std::string& s) {
