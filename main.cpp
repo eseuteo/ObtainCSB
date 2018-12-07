@@ -8,8 +8,15 @@
 #include <limits>
 #include <cmath>
 #include <unordered_map>
+#include <sparsehash/dense_hash_map>
 #include <bits/unordered_map.h>
 #include "score_matrix_cell.h"
+
+struct eq_uint64_t {
+    bool operator()(const uint64_t u1, const uint64_t u2) const {
+        return u1 == u2;
+    }
+};
 
 uint64_t get_elem(std::unordered_map<score_matrix_cell, uint64_t> map, uint64_t index_i, uint64_t index_j) {
     uint64_t ans;
@@ -30,11 +37,6 @@ uint64_t get_elem(std::unordered_map<uint64_t, uint64_t> map, uint64_t index) {
         ans = 0;
     }
     return ans;
-}
-
-void set_elem(std::unordered_map<score_matrix_cell, uint64_t> map, uint64_t i, uint64_t j, uint64_t score) {
-    score_matrix_cell index = score_matrix_cell(i, j);
-    map.insert({index, score});
 }
 
 int main(int argc, char *argv[]) {
@@ -117,9 +119,11 @@ int main(int argc, char *argv[]) {
         std::cout << x_size << ", " << y_size << std::endl;
 #endif
 
-        // Replaced arrays with unordered maps
-    std::unordered_map<uint64_t, uint64_t> x_sequence_map;
-    std::unordered_map<uint64_t, uint64_t> y_sequence_map;
+        // Replaced unordered_map with dense_hash_map ==
+    google::dense_hash_map<uint64_t, uint64_t> x_sequence_map;
+    x_sequence_map.set_empty_key(NULL);
+    google::dense_hash_map<uint64_t, uint64_t> y_sequence_map;
+    y_sequence_map.set_empty_key(NULL);
 
     // Determine what to do with each frag      O(n), being n the number of frags
     //      - How many cells are being filled
@@ -132,12 +136,12 @@ int main(int argc, char *argv[]) {
         start = (*it).x_start / cell_size;
         end = start + cells_to_fill;
         for (start; start < end; start++) {
-            x_sequence_map.insert({start+1, (*it).frag_id});
+            x_sequence_map[start+1] = (*it).frag_id;
         }
         start = (*it).y_start / cell_size;
         end = start + cells_to_fill;
         for (start; start < end; start++) {
-            y_sequence_map.insert({start+1, (*it).frag_id});
+            y_sequence_map[start+1] = (*it).frag_id;
         }
     }
 
@@ -162,9 +166,20 @@ int main(int argc, char *argv[]) {
     int64_t row_max_score = 0;
     int64_t *column_max_score = new int64_t[y_size];
 
+    // WHY DO I NEED THIS?
+    uint64_t _i = 0;
+    for (_i = 0; _i < y_size; _i++) {
+        column_max_score[_i] = 0;
+    }
+
+    uint64_t prev_cell = 0;
+    uint64_t prev_row_cell = 0;
+    score_matrix_cell *aux_score_cell = new score_matrix_cell();
+
     uint64_t score = 0;
 
     std::unordered_map<score_matrix_cell, uint64_t> sparse_score_matrix;
+
 //    int64_t **score_matrix = new int64_t *[x_size];
 //    for (int64_t i = 0; i < x_size; i++) {
 //        score_matrix[i] = new int64_t[y_size];
@@ -185,17 +200,11 @@ int main(int argc, char *argv[]) {
     // Score matrix filling
     // TODO: In order to change it with a sparse matrix --> get and set functions
     for (uint64_t i = 1; i < x_size; i++) {
-        current_x = get_elem(x_sequence_map, i);
-
-#ifdef _DEBUG_SPARSE
-        if (i == 3422) {
-            std::cout << i << std::endl;
-        }
-#endif
+        current_x = x_sequence_map[i];
 
 #ifdef VERBOSE
         std::cout << i << std::endl;
-        if (i % (x_size / 10) == 0) {
+        if (i % (x_size / 10) == 0 || i == 3422) {
             std::cout << i * 100 / x_size + 1 << " %" << std::endl;
         }
 #endif
@@ -210,16 +219,15 @@ int main(int argc, char *argv[]) {
             }
 #endif
 
-            current_y = get_elem(y_sequence_map, j);
+            current_y = y_sequence_map[j];
 
             // current_cell_score = get_score(current_x, current_y) + score_matrix[i-1][j-1];
-            current_cell_score = get_score(current_x, current_y) + get_elem(sparse_score_matrix, i-1, j-1);
 
-            if (current_cell_score == 0) {
-                continue;
-            }
+            prev_cell = get_elem(sparse_score_matrix, i-1, j-1);
+            current_cell_score = get_score(current_x, current_y) + prev_cell;
             // row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, score_matrix[i][j-1]);
-            row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, get_elem(sparse_score_matrix, i, j-1));
+            prev_row_cell = get_elem(sparse_score_matrix, i, j-1);
+            row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, prev_row_cell);
             // column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], score_matrix[i-1][j]);
             column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], get_elem(sparse_score_matrix, i-1, j));
 
@@ -231,7 +239,8 @@ int main(int argc, char *argv[]) {
             // score_matrix[i][j] = obtain_score_matrix(x_y_ratio, current_cell_score, row_max_score, column_max_score[j]);
             score = obtain_score_matrix(x_y_ratio, current_cell_score, row_max_score, column_max_score[j]);
             if (score != 0) {
-                set_elem(sparse_score_matrix, i, j, score);
+                aux_score_cell = new score_matrix_cell(i, j);
+                sparse_score_matrix.insert({*aux_score_cell, score});
                 if (get_elem(sparse_score_matrix, i, j) > 8) {
                     size_list = list_top_scores.length;
                     list_top_scores.insert(get_elem(sparse_score_matrix, i, j), i, j);
