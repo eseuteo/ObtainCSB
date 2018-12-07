@@ -12,11 +12,15 @@
 #include <bits/unordered_map.h>
 #include "score_matrix_cell.h"
 
-struct eq_uint64_t {
-    bool operator()(const uint64_t u1, const uint64_t u2) const {
-        return u1 == u2;
+struct eq_score_matrix_cell {
+    bool operator()(const score_matrix_cell s1, const score_matrix_cell s2) const {
+        return s1 == s2;
     }
 };
+
+uint64_t get_hash(uint64_t i, uint64_t j) {
+    return i >= j ? i * i + i + j : i + j * j;
+}
 
 uint64_t get_elem(std::unordered_map<score_matrix_cell, uint64_t> map, uint64_t index_i, uint64_t index_j) {
     uint64_t ans;
@@ -174,12 +178,14 @@ int main(int argc, char *argv[]) {
 
     uint64_t prev_cell = 0;
     uint64_t prev_row_cell = 0;
+    uint64_t prev_col_cell = 0;
     score_matrix_cell *aux_score_cell = new score_matrix_cell();
 
     uint64_t score = 0;
 
-    std::unordered_map<score_matrix_cell, uint64_t> sparse_score_matrix;
-
+    google::dense_hash_map<uint64_t, uint64_t> sparse_score_matrix;
+    sparse_score_matrix.set_empty_key(NULL);
+    //std::unordered_map<score_matrix_cell, uint64_t> sparse_score_matrix;
 //    int64_t **score_matrix = new int64_t *[x_size];
 //    for (int64_t i = 0; i < x_size; i++) {
 //        score_matrix[i] = new int64_t[y_size];
@@ -203,8 +209,8 @@ int main(int argc, char *argv[]) {
         current_x = x_sequence_map[i];
 
 #ifdef VERBOSE
-        std::cout << i << std::endl;
-        if (i % (x_size / 10) == 0 || i == 3422) {
+        //std::cout << i << std::endl;
+        if (i % (x_size / 5) == 0) {
             std::cout << i * 100 / x_size + 1 << " %" << std::endl;
         }
 #endif
@@ -223,13 +229,14 @@ int main(int argc, char *argv[]) {
 
             // current_cell_score = get_score(current_x, current_y) + score_matrix[i-1][j-1];
 
-            prev_cell = get_elem(sparse_score_matrix, i-1, j-1);
+            prev_cell = sparse_score_matrix.count(get_hash(i-1, j-1)) ? sparse_score_matrix[get_hash(i-1, j-1)] : 0;
             current_cell_score = get_score(current_x, current_y) + prev_cell;
             // row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, score_matrix[i][j-1]);
-            prev_row_cell = get_elem(sparse_score_matrix, i, j-1);
+            prev_row_cell = sparse_score_matrix.count(get_hash(i, j-1)) ? sparse_score_matrix[get_hash(i, j-1)] : 0;
             row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, prev_row_cell);
             // column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], score_matrix[i-1][j]);
-            column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], get_elem(sparse_score_matrix, i-1, j));
+            prev_col_cell = sparse_score_matrix.count(get_hash(i-1, j)) ? sparse_score_matrix[get_hash(i-1, j)] : 0;
+            column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], prev_col_cell);
 
 #ifdef _DEBUG
             std::cout << "row " << row_max_score << std::endl;
@@ -240,10 +247,10 @@ int main(int argc, char *argv[]) {
             score = obtain_score_matrix(x_y_ratio, current_cell_score, row_max_score, column_max_score[j]);
             if (score != 0) {
                 aux_score_cell = new score_matrix_cell(i, j);
-                sparse_score_matrix.insert({*aux_score_cell, score});
-                if (get_elem(sparse_score_matrix, i, j) > 8) {
+                sparse_score_matrix[get_hash(i, j)] = score;
+                if (sparse_score_matrix[get_hash(i, j)] > 8) {
                     size_list = list_top_scores.length;
-                    list_top_scores.insert(get_elem(sparse_score_matrix, i, j), i, j);
+                    list_top_scores.insert(sparse_score_matrix[get_hash(i, j)], i, j);
                     list_top_scores.remove_near_scores();
                 }
             }
@@ -276,9 +283,10 @@ int main(int argc, char *argv[]) {
         starting_index_i = ending_index_i = current_max.i;
         starting_index_j = ending_index_j = current_max.j;
         while (!stop) {
-            case_max = get_case_max(get_elem(sparse_score_matrix, ending_index_i-1, ending_index_j-1),
-                    get_elem(sparse_score_matrix, ending_index_i, ending_index_j-1),
-                    get_elem(sparse_score_matrix, ending_index_i-1, ending_index_j));
+            prev_cell = sparse_score_matrix.count(get_hash(ending_index_i-1, ending_index_j-1)) ? sparse_score_matrix[get_hash(ending_index_i-1, ending_index_j-1)] : 0;
+            prev_col_cell = sparse_score_matrix.count(get_hash(ending_index_i, ending_index_j-1)) ? sparse_score_matrix[get_hash(ending_index_i, ending_index_j-1)] : 0;
+            prev_row_cell = sparse_score_matrix.count(get_hash(ending_index_i-1, ending_index_j)) ? sparse_score_matrix[get_hash(ending_index_i-1, ending_index_j)] : 0;
+            case_max = get_case_max(prev_cell, prev_col_cell, prev_row_cell);
             switch(case_max) {
                 case DIAGONAL:
                     ending_index_i-=1;
@@ -291,7 +299,7 @@ int main(int argc, char *argv[]) {
                     ending_index_j-=1;
                     break;
             }
-            stop = get_elem(sparse_score_matrix, ending_index_i, ending_index_j) == 0;
+            stop = !sparse_score_matrix.count(get_hash(ending_index_i, ending_index_j));
         }
 
         double tilt = get_tilt(ending_index_i, starting_index_i, ending_index_j, starting_index_j);
