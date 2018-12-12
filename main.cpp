@@ -19,7 +19,7 @@ struct eq_score_matrix_cell {
 };
 
 uint64_t get_hash(uint64_t i, uint64_t j) {
-    return i >= j ? i * i + i + j : i + j * j;
+    return (i * 37 + j) * 37;
 }
 
 uint64_t get_elem(std::unordered_map<score_matrix_cell, uint64_t> map, uint64_t index_i, uint64_t index_j) {
@@ -176,6 +176,7 @@ int main(int argc, char *argv[]) {
         column_max_score[_i] = 0;
     }
 
+    uint64_t hash = 0;
     uint64_t prev_cell = 0;
     uint64_t prev_row_cell = 0;
     uint64_t prev_col_cell = 0;
@@ -183,8 +184,10 @@ int main(int argc, char *argv[]) {
 
     uint64_t score = 0;
 
-    google::dense_hash_map<uint64_t, uint64_t> sparse_score_matrix;
-    sparse_score_matrix.set_empty_key(NULL);
+//    google::dense_hash_map<uint64_t, google::dense_hash_map> score_matrix_rows;
+//    score_matrix_rows.set_empty_key(NULL);
+//    google::dense_hash_map<uint64_t, uint64_t> sparse_score_matrix;
+//    sparse_score_matrix.set_empty_key(NULL);
     //std::unordered_map<score_matrix_cell, uint64_t> sparse_score_matrix;
 //    int64_t **score_matrix = new int64_t *[x_size];
 //    for (int64_t i = 0; i < x_size; i++) {
@@ -228,15 +231,17 @@ int main(int argc, char *argv[]) {
             current_y = y_sequence_map[j];
 
             // current_cell_score = get_score(current_x, current_y) + score_matrix[i-1][j-1];
-
-            prev_cell = sparse_score_matrix.count(get_hash(i-1, j-1)) ? sparse_score_matrix[get_hash(i-1, j-1)] : 0;
+            hash = get_hash(i-1, j-1);
+            prev_cell = sparse_score_matrix.count(hash) ? sparse_score_matrix[hash] : 0;
             current_cell_score = get_score(current_x, current_y) + prev_cell;
             // row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, score_matrix[i][j-1]);
-            prev_row_cell = sparse_score_matrix.count(get_hash(i, j-1)) ? sparse_score_matrix[get_hash(i, j-1)] : 0;
-            row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, prev_row_cell);
+            hash = get_hash(i, j-1);
+            prev_row_cell = sparse_score_matrix.count(hash) ? sparse_score_matrix[hash] : 0;
+            row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, prev_col_cell);
             // column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], score_matrix[i-1][j]);
-            prev_col_cell = sparse_score_matrix.count(get_hash(i-1, j)) ? sparse_score_matrix[get_hash(i-1, j)] : 0;
-            column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], prev_col_cell);
+            hash = get_hash(i-1, j);
+            prev_col_cell = sparse_score_matrix.count(hash) ? sparse_score_matrix[hash] : 0;
+            column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], prev_row_cell);
 
 #ifdef _DEBUG
             std::cout << "row " << row_max_score << std::endl;
@@ -247,7 +252,8 @@ int main(int argc, char *argv[]) {
             score = obtain_score_matrix(x_y_ratio, current_cell_score, row_max_score, column_max_score[j]);
             if (score != 0) {
                 aux_score_cell = new score_matrix_cell(i, j);
-                sparse_score_matrix[get_hash(i, j)] = score;
+                hash = get_hash(i, j);
+                sparse_score_matrix[hash] = score;
                 if (sparse_score_matrix[get_hash(i, j)] > 8) {
                     size_list = list_top_scores.length;
                     list_top_scores.insert(sparse_score_matrix[get_hash(i, j)], i, j);
@@ -312,14 +318,14 @@ int main(int argc, char *argv[]) {
         std::cout <<  M_PI/16 << std::endl;
 #endif
 
-        if (fabs(tilt - atan(1/x_y_ratio)) < M_PI/8) {
+       // if (fabs(tilt - atan(1/x_y_ratio)) < M_PI/8) {
             output_file << ending_index_i * cell_size << ",";
             output_file << ending_index_j * cell_size << ",";
             output_file << starting_index_i * cell_size << ",";
             output_file << starting_index_j * cell_size << ",";
             output_file << tilt << ",";
             output_file << "\n";
-        }
+       // }
         list_top_scores.remove_last();
 
 #ifdef VERBOSE
