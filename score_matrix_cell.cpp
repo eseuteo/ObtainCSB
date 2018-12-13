@@ -14,3 +14,7 @@ score_matrix_cell:: score_matrix_cell (uint64_t i, uint64_t j) {
     this->i = i;
     this->j = j;
 }
+
+bool operator==(const score_matrix_cell& a, const score_matrix_cell& b) {
+    return a.i == b.i && a.j == b.j;
+}

@@ -40,11 +40,14 @@ bool is_near(struct score_cell *a, struct score_cell *b) {
 }
 
 int64_t get_score(uint64_t a, uint64_t b) {
+    int64_t ans = 0;
     if (a && (a == b)) {
-        return HIT_SCORE;
+        ans = HIT_SCORE;
     }
-    else
-        return -HIT_SCORE;
+    else {
+        ans = -HIT_SCORE;
+    }
+    return ans;
 }
 
 std::string get_last_word(const std::string& s) {
@@ -98,16 +101,10 @@ int64_t get_col_max_score(int64_t ** score_matrix, uint64_t i, uint64_t j) {
 
 int64_t obtain_row_max_score(double ratio, int64_t current_max_row_score, int64_t left_cell_score) {
     int64_t ans = 0;
-//    if (current_max_row_score > 10) {
-//        std::cout << "Inside obtain_row_max_score: " << ratio << " " << left_cell_score << " " << current_max_row_score << std::endl;
-//    }
     ans = std::max(current_max_row_score - (int64_t) GAP_PENALTY, left_cell_score - (int64_t) GAP_PENALTY);
-    //std::cout << "Inside obtain_row_max_score: " << ans << std::endl;
     ans = std::max((int64_t) 0, ans);
-    //std::cout << "Inside obtain_row_max_score: " << ans << std::endl;
     ans = (int64_t) (ans + ceil((GAP_PENALTY/HIT_SCORE) * ratio));
-    //std::cout << "Inside obtain_row_max_score: " << ans << std::endl;
-    //std::cout << "---" << std::endl;
+
     return ans;
 }
 

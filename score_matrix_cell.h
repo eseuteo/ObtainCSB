@@ -14,7 +14,7 @@ public:
     uint64_t j;
     score_matrix_cell();
     score_matrix_cell(uint64_t i, uint64_t j);
-
+    bool operator==(const score_matrix_cell&);
 };
 
 
