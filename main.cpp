@@ -129,18 +129,22 @@ int main(int argc, char *argv[]) {
     int64_t current_cell_score;
     int64_t row_max_score = 0;
     int64_t *column_max_score = new int64_t[y_size];
+    int64_t final_score = 0;
 
 
-    int64_t **score_matrix = new int64_t *[x_size];
-    for (int64_t i = 0; i < x_size; i++) {
-        score_matrix[i] = new int64_t[y_size];
-    }
+    google::dense_hash_map<int64_t , google::dense_hash_map<int64_t, int64_t>> score_matrix;
+    score_matrix.set_empty_key(NULL);
 
-    for (int64_t aux_i = 0; aux_i < x_size; aux_i++) {
-        for (int64_t aux_j = 0; aux_j < y_size; aux_j++) {
-            score_matrix[aux_i][aux_j] = 0;
-        }
-    }
+//    int64_t **score_matrix = new int64_t *[x_size];
+//    for (int64_t i = 0; i < x_size; i++) {
+//        score_matrix[i] = new int64_t[y_size];
+//    }
+//
+//    for (int64_t aux_i = 0; aux_i < x_size; aux_i++) {
+//        for (int64_t aux_j = 0; aux_j < y_size; aux_j++) {
+//            score_matrix[aux_i][aux_j] = 0;
+//        }
+//    }
 
     for (int64_t aux_j = 0; aux_j < y_size; aux_j++) {
         column_max_score[aux_j] = 0;
@@ -161,6 +165,9 @@ int main(int argc, char *argv[]) {
     // Score matrix filling
     // TODO: In order to change it with a sparse matrix --> get and set functions
     for (uint64_t i = 1; i < x_size; i++) {
+        google::dense_hash_map<int64_t, int64_t> current_column;
+        current_column.set_empty_key(NULL);
+
         current_x = x_sequence_map.count(i) ? x_sequence_map[i] : 0;
 
 #ifdef _DEBUG_SPARSE
@@ -176,7 +183,6 @@ int main(int argc, char *argv[]) {
 #endif
 
         for (uint64_t j = 1; j < y_size; j++) {
-            score_matrix[i][j] = 0;
 
 #ifdef _DEBUG
 //            if (x_sequence[i] && x_sequence[i] == y_sequence[j]) {
@@ -187,24 +193,45 @@ int main(int argc, char *argv[]) {
 
             current_y = y_sequence_map.count(j) ? y_sequence_map[j] : 0;
 
-            current_cell_score = get_score(current_x, current_y) + score_matrix[i-1][j-1];
-            row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, score_matrix[i][j-1]);
-            column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], score_matrix[i-1][j]);
+            if (score_matrix.count(i-1)) {
+                diagonal_cell_score = score_matrix[i-1].count(j-1) ? score_matrix[i-1][j-1] : 0;
+                left_cell_score = score_matrix[i-1].count(j) ? score_matrix[i-1][j] : 0;
+            } else {
+                diagonal_cell_score = 0;
+                left_cell_score = 0;
+            }
+
+            if (score_matrix.count(i)) {
+                above_cell_score = score_matrix[i].count(j-1) ? score_matrix[i][j-1] : 0;
+            } else {
+                above_cell_score = 0;
+            }
+
+            current_cell_score = get_score(current_x, current_y) + diagonal_cell_score;
+            row_max_score = obtain_row_max_score(x_y_ratio, row_max_score, above_cell_score);
+            column_max_score[j] = obtain_column_max_score(x_y_ratio, column_max_score[j], left_cell_score);
 
 #ifdef _DEBUG
             std::cout << "row " << row_max_score << std::endl;
             std::cout << "col " << column_max_score[j] << std::endl;
 #endif
 
-            score_matrix[i][j] = obtain_score_matrix(x_y_ratio, current_cell_score, row_max_score, column_max_score[j]);
+            final_score = obtain_score_matrix(x_y_ratio, current_cell_score, row_max_score, column_max_score[j]);
 
-            if (score_matrix[i][j] > HIT_SCORE) {
-                list_top_scores.insert(score_matrix[i][j], i, j);
-                list_top_scores.remove_near_scores();
+            if (final_score) {
+                current_column[j] = final_score;
+                if (current_column[j] > HIT_SCORE) {
+                    list_top_scores.insert(current_column[j], i, j);
+                    list_top_scores.remove_near_scores();
 #ifdef _DEBUG_SPARSE
-                list_top_scores.print_list();
+                    list_top_scores.print_list();
 #endif
+                }
             }
+        }
+
+        if (current_column.size()) {
+            score_matrix[i] = current_column;
         }
     }
 
@@ -224,26 +251,44 @@ int main(int argc, char *argv[]) {
     std::cout << len << std::endl;
 #endif
 
+    above_cell_score = left_cell_score = diagonal_cell_score = 0;
     for (uint64_t i = 0; i < len; i++) {
         stop = false;
         struct score_cell current_max = list_top_scores.get_last();
         starting_index_i = ending_index_i = current_max.i;
         starting_index_j = ending_index_j = current_max.j;
         while (!stop) {
-            case_max = get_case_max(score_matrix[ending_index_i-1][ending_index_j-1], score_matrix[ending_index_i][ending_index_j-1], score_matrix[ending_index_i-1][ending_index_j]);
+            if (score_matrix.count(ending_index_i-1)) {
+                diagonal_cell_score = score_matrix[ending_index_i-1].count(ending_index_j-1) ? score_matrix[ending_index_i-1][ending_index_j-1] : 0;
+                left_cell_score = score_matrix[ending_index_i-1].count(ending_index_j) ? score_matrix[ending_index_i-1][ending_index_j] : 0;
+            } else {
+                diagonal_cell_score = 0;
+                left_cell_score = 0;
+            }
+
+            if (score_matrix.count(ending_index_i)) {
+                above_cell_score = score_matrix[ending_index_i].count(ending_index_j-1) ? score_matrix[ending_index_i][ending_index_j-1] : 0;
+            } else {
+                above_cell_score = 0;
+            }
+            case_max = get_case_max(diagonal_cell_score, above_cell_score, left_cell_score);
             switch(case_max) {
                 case DIAGONAL:
-                    ending_index_i-=1;
-                    ending_index_j-=1;
+                    ending_index_i -= 1;
+                    ending_index_j -= 1;
                     break;
                 case LEFT:
-                    ending_index_i-=1;
+                    ending_index_i -= 1;
                     break;
                 case UP:
-                    ending_index_j-=1;
+                    ending_index_j -= 1;
                     break;
             }
-            stop = score_matrix[ending_index_i][ending_index_j] == 0;
+            if (score_matrix.count(ending_index_i) && score_matrix[ending_index_i].count(ending_index_j)) {
+                stop = false;
+            } else {
+                stop = true;
+            }
         }
 
         double tilt = get_tilt(ending_index_i, starting_index_i, ending_index_j, starting_index_j);
